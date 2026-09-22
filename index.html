@@ -1,1 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- Mobile Web App Tags for iOS and Android PWA experience -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Sweetheart">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#FF85A1">
 
+    <title>Julianne's Pomodoro</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts: Nunito & Quicksand for cute aesthetic -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            overscroll-behavior-y: none; /* Prevents pull-to-refresh pull down effect on mobile */
+            touch-action: manipulation;
+        }
+
+        .font-cute {
+            font-family: 'Quicksand', sans-serif;
+        }
+
+        /* Dynamic Theme Palettes */
+
+        body.theme-sage {
+            --bg-start: #F3F8F2;
+            --bg-end: #E4EFE3;
+            --card-bg: rgba(255, 255, 255, 0.88);
+            --primary: #76A07B;
+            --primary-hover: #638A68;
+            --primary-light: #E1EBE0;
+            --accent: #92B997;
+            --text-dark: #2A402D;
+            --ring-track: #CBE0CD;
+        }
+
+        .bg-custom-gradient {
+            background: linear-gradient(135deg, var(--bg-start), var(--bg-end));
+        }
+
+        .card-custom {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 2px solid rgba(255, 255, 255, 0.6);
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            box-shadow: 0 8px 20px -4px var(--primary);
+        }
+        .btn-primary:active {
+            transform: scale(0.96);
+            background-color: var(--primary-hover);
+        }
+
+        .text-primary-color { color: var(--primary); }
+        .text-dark-color { color: var(--text-dark); }
+        .bg-primary-light { background-color: var(--primary-light); }
+
+        /* Smooth Progress Ring */
+        .progress-ring__circle {
+            transition: stroke-dashoffset 0.5s ease-in-out;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+            stroke: var(--primary);
+        }
+
+        .progress-ring__track {
+            stroke: var(--ring-track);
+        }
+
+        /* Floating Hearts Animation */
+        @keyframes floatUp {
+            0% {
+                transform: translateY(0) scale(0.8) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-120vh) scale(1.3) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        .heart-particle {
+            position: fixed;
+            bottom: -20px;
+            pointer-events: none;
+            z-index: 100;
+            animation: floatUp 4s ease-out forwards;
+        }
+
+        /* Custom Scrollbar for Tasks */
+        .custom-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: var(--ring-track);
+            border-radius: 10px;
+        }
+        
+        /* Modal Transitions */
+        .modal-enter {
+            opacity: 0;
+            transform: scale(0.92);
+            transition: opacity 0.25s ease-out, transform 0.25s ease-out;
+        }
+        .modal-enter-active {
+            opacity: 1;
+            transform: scale(1);
+        }
+    </style>
+</head>
+<body class="theme-sage bg-custom-gradient min-h-screen text-gray-800 flex flex-col justify-between overflow-x-hidden antialiased">
+
+    <!-- Top Header Navigation -->
+    <header class="w-full max-w-md mx-auto pt-4 px-5 flex items-center justify-between z-10">
+        <div class="flex items-center space-x-2">
+            <h1 class="font-cute text-xl font-bold text-dark-color tracking-wide">Julianne's Pomodoro</h1>
+        </div>
+        <div class="flex items-center space-x-2">
+            <!-- Sound Ambient Toggle -->
+            <button id="btn-ambient" onclick="toggleAmbientSound()" class="w-10 h-10 rounded-2xl bg-white/70 shadow-sm flex items-center justify-center text-dark-color text-lg active:scale-95 transition" aria-label="Toggle Ambient Audio">
+                <i id="ambient-icon" class="fa-solid fa-volume-xmark"></i>
+            </button>
+            <!-- Add to Home Screen Prompt Trigger -->
+            <button onclick="openPwaModal()" class="w-10 h-10 rounded-2xl bg-white/70 shadow-sm flex items-center justify-center text-dark-color text-lg active:scale-95 transition" aria-label="Add to Phone">
+                <i class="fa-solid fa-mobile-screen-button"></i>
+            </button>
+            <!-- Settings Modal Button -->
+            <button onclick="openSettings()" class="w-10 h-10 rounded-2xl bg-white/70 shadow-sm flex items-center justify-center text-dark-color text-lg active:scale-95 transition" aria-label="Settings">
+                <i class="fa-solid fa-gear"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container (Mobile-first Viewport centered) -->
+    <main class="w-full max-w-md mx-auto px-5 py-3 flex-1 flex flex-col justify-around items-center z-10">
+
+        <!-- Timer Mode Selector Tabs -->
+        <div class="w-full bg-white/60 p-1.5 rounded-3xl backdrop-blur-md flex justify-between shadow-inner mb-2 border border-white/40">
+            <button id="mode-work" onclick="switchMode('work')" class="flex-1 py-2 rounded-2xl text-xs font-bold transition-all duration-300 text-white bg-custom-gradient btn-primary">
+                Focus 💕
+            </button>
+            <button id="mode-short" onclick="switchMode('short')" class="flex-1 py-2 rounded-2xl text-xs font-bold transition-all duration-300 text-dark-color hover:bg-white/40">
+                Short Break 🍵
+            </button>
+            <button id="mode-long" onclick="switchMode('long')" class="flex-1 py-2 rounded-2xl text-xs font-bold transition-all duration-300 text-dark-color hover:bg-white/40">
+                Long Break 🌸
+            </button>
+        </div>
+
+        <!-- Timer Display Ring Card -->
+        <div class="relative my-4 flex items-center justify-center">
+            <svg class="w-64 h-64 sm:w-72 sm:h-72" viewBox="0 0 240 240">
+                <!-- Outer Track Circle -->
+                <circle class="progress-ring__track" stroke-width="12" fill="transparent" r="100" cx="120" cy="120"/>
+                <!-- Animated Progress Circle -->
+                <circle id="timer-ring" class="progress-ring__circle" stroke-width="12" stroke-linecap="round" fill="transparent" r="100" cx="120" cy="120"/>
+            </svg>
+
+            <!-- Time Display Inner Overlay -->
+            <div class="absolute flex flex-col items-center justify-center text-center">
+                <div id="timer-time" class="font-cute text-5xl sm:text-6xl font-extrabold text-dark-color tracking-tight drop-shadow-sm">
+                    25:00
+                </div>
+                <div id="session-counter" class="mt-2 text-xs font-bold uppercase tracking-wider text-dark-color opacity-80 bg-white/70 px-3 py-1 rounded-full shadow-xs">
+                    Session 1/4 • Stay Cute!
+                </div>
+            </div>
+        </div>
+
+        <!-- Ambient Sound Selector Pill -->
+        <div id="ambient-selector-bar" class="w-full flex items-center justify-center gap-2 mb-3 text-xs font-semibold text-dark-color">
+            <span class="opacity-75">Sound:</span>
+            <button onclick="setAmbientType('rain')" id="snd-rain" class="px-2.5 py-1 rounded-xl bg-white/60 shadow-xs border border-white/50 active:scale-95">🌧️ Soft Rain</button>
+            <button onclick="setAmbientType('cafe')" id="snd-cafe" class="px-2.5 py-1 rounded-xl bg-white/60 shadow-xs border border-white/50 active:scale-95">☕ Cafe</button>
+            <button onclick="setAmbientType('waves')" id="snd-waves" class="px-2.5 py-1 rounded-xl bg-white/60 shadow-xs border border-white/50 active:scale-95">🌊 Ocean</button>
+        </div>
+
+        <!-- Primary Timer Actions Bar -->
+        <div class="w-full flex items-center justify-center space-x-4 mb-4">
+            <button id="btn-reset" onclick="resetTimer()" class="w-14 h-14 rounded-3xl bg-white/80 shadow-md text-dark-color text-xl flex items-center justify-center active:scale-90 transition">
+                <i class="fa-solid fa-rotate-right"></i>
+            </button>
+            <button id="btn-start" onclick="toggleTimer()" class="btn-primary h-16 px-8 rounded-3xl font-cute font-extrabold text-xl flex items-center justify-center space-x-3 shadow-lg transition tracking-wide active:scale-95 flex-1 max-w-[200px]">
+                <i id="start-icon" class="fa-solid fa-play text-lg"></i>
+                <span id="start-text">Start</span>
+            </button>
+            <button id="btn-skip" onclick="skipTimer()" class="w-14 h-14 rounded-3xl bg-white/80 shadow-md text-dark-color text-xl flex items-center justify-center active:scale-90 transition">
+                <i class="fa-solid fa-forward"></i>
+            </button>
+        </div>
+
+        <!-- Cute Mobile Task Drawer / Mini List -->
+        <div class="w-full card-custom rounded-3xl p-4 shadow-lg mb-2">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="font-cute font-bold text-dark-color text-sm flex items-center gap-1.5">
+                    <span>✨</span> Goals
+                </h3>
+                <span id="task-count" class="text-xs text-dark-color opacity-70 font-bold">0 Done</span>
+            </div>
+
+            <!-- Task Input Field -->
+            <form onsubmit="addTask(event)" class="flex gap-2 mb-3">
+                <input id="task-input" type="text" placeholder="Add a sweet task..." class="flex-1 bg-white/80 text-dark-color placeholder-gray-400 text-xs rounded-2xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-300 shadow-inner">
+                <button type="submit" class="btn-primary w-9 h-9 rounded-2xl flex items-center justify-center text-sm font-bold active:scale-90 transition">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+            </form>
+
+            <!-- Scrollable Tasks List -->
+            <ul id="task-list" class="max-h-32 overflow-y-auto custom-scroll space-y-2 pr-1">
+                <!-- Dynamic tasks rendered here -->
+            </ul>
+        </div>
+
+    </main>
+
+    <!-- Mobile Bottom Navigation Bar -->
+    <nav class="w-full max-w-md mx-auto bg-white/70 backdrop-blur-md rounded-t-3xl border-t border-white/50 px-6 py-2.5 flex justify-around items-center z-10 shadow-lg">
+        <button onclick="switchTab('timer')" id="nav-timer" class="flex flex-col items-center text-primary-color">
+            <i class="fa-solid fa-clock text-lg"></i>
+            <span class="text-[10px] font-bold mt-0.5">Timer</span>
+        </button>
+        <button onclick="openLoveNoteModal()" class="flex flex-col items-center text-gray-400 hover:text-dark-color transition">
+            <i class="fa-solid fa-heart text-lg"></i>
+            <span class="text-[10px] font-bold mt-0.5">Love Notes</span>
+        </button>
+        <button onclick="openStatsModal()" class="flex flex-col items-center text-gray-400 hover:text-dark-color transition">
+            <i class="fa-solid fa-chart-pie text-lg"></i>
+            <span class="text-[10px] font-bold mt-0.5">Stats</span>
+        </button>
+    </nav>
+
+    <!-- MODAL 1: Settings Modal -->
+    <div id="modal-settings" class="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 hidden">
+        <div class="card-custom w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl modal-enter">
+            <div class="flex justify-between items-center mb-5">
+                <h3 class="font-cute font-bold text-lg text-dark-color flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-primary-color"></i> Timer Preferences
+                </h3>
+                <button onclick="closeSettings()" class="text-gray-400 hover:text-gray-600 text-lg w-8 h-8 rounded-full flex items-center justify-center active:scale-90">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Timer Durations Form -->
+            <div class="space-y-4 text-xs font-bold text-dark-color">
+                <div>
+                    <label class="block mb-1.5 opacity-80">Focus Duration (minutes)</label>
+                    <input id="set-work" type="number" min="1" max="90" value="25" class="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block mb-1.5 opacity-80">Short Break (m)</label>
+                        <input id="set-short" type="number" min="1" max="30" value="5" class="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300">
+                    </div>
+                    <div>
+                        <label class="block mb-1.5 opacity-80">Long Break (m)</label>
+                        <input id="set-long" type="number" min="1" max="60" value="15" class="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300">
+                    </div>
+                </div>
+
+                <!-- Theme Chooser -->
+                <div class="pt-2">
+                    <label class="block mb-2 opacity-80">Aesthetic Palette</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="applyTheme('berry')" class="p-2.5 rounded-2xl border-2 flex items-center space-x-2 bg-[#FFF0F5] border-pink-300 active:scale-95">
+                            <span class="w-4 h-4 rounded-full bg-[#FF6B8B]"></span>
+                            <span class="text-xs">Pastel Berry</span>
+                        </button>
+                        <button onclick="applyTheme('sage')" class="p-2.5 rounded-2xl border-2 flex items-center space-x-2 bg-[#F3F8F2] border-green-300 active:scale-95">
+                            <span class="w-4 h-4 rounded-full bg-[#76A07B]"></span>
+                            <span class="text-xs">Sage Green</span>
+                        </button>
+                        <button onclick="applyTheme('sunset')" class="p-2.5 rounded-2xl border-2 flex items-center space-x-2 bg-[#FFF5EE] border-orange-200 active:scale-95">
+                            <span class="w-4 h-4 rounded-full bg-[#FF8A65]"></span>
+                            <span class="text-xs">Sunset Warm</span>
+                        </button>
+                        <button onclick="applyTheme('moonlight')" class="p-2.5 rounded-2xl border-2 flex items-center space-x-2 bg-[#FAF0CA] border-yellow-200 active:scale-95">
+                            <span class="w-4 h-4 rounded-full bg-[#0D3B66]"></span>
+                            <span class="text-xs">Moonlight</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="saveSettings()" class="btn-primary w-full py-3 rounded-2xl mt-6 font-bold text-sm tracking-wide">
+                Save & Apply 💕
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL 2: Add to Home Screen / PWA Overlay Instructions -->
+    <div id="modal-pwa" class="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 hidden">
+        <div class="card-custom w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl modal-enter">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-cute font-bold text-lg text-dark-color flex items-center gap-2">
+                    <i class="fa-solid fa-mobile-screen text-pink-500"></i> Install on Your Phone
+                </h3>
+                <button onclick="closePwaModal()" class="text-gray-400 hover:text-gray-600 text-lg w-8 h-8 rounded-full flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <p class="text-xs text-gray-600 mb-4 leading-relaxed">
+                Use Sweetheart Pomodoro like a native mobile app without installing from an app store!
+            </p>
+
+            <div class="space-y-3 text-xs text-dark-color">
+                <!-- iOS Instructions -->
+                <div class="p-3 rounded-2xl bg-pink-50 border border-pink-100 flex items-start space-x-3">
+                    <i class="fa-brands fa-apple text-xl text-gray-700 mt-1"></i>
+                    <div>
+                        <span class="font-bold block text-sm">iOS Safari</span>
+                        Tap the <strong>Share button</strong> <i class="fa-solid fa-share-from-square"></i> in Safari, then scroll down and tap <strong>"Add to Home Screen"</strong> <i class="fa-regular fa-square-plus"></i>.
+                    </div>
+                </div>
+
+                <!-- Android Instructions -->
+                <div class="p-3 rounded-2xl bg-green-50 border border-green-100 flex items-start space-x-3">
+                    <i class="fa-brands fa-android text-xl text-green-600 mt-1"></i>
+                    <div>
+                        <span class="font-bold block text-sm">Android Chrome</span>
+                        Tap the <strong>3 dots menu</strong> <i class="fa-solid fa-ellipsis-vertical"></i> in top right, then select <strong>"Add to Home screen"</strong> or <strong>"Install app"</strong>.
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="closePwaModal()" class="btn-primary w-full py-3 rounded-2xl mt-5 font-bold text-sm">
+                Got it! ✨
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL 3: Reward / Sweet Note Popup on Session Completion -->
+    <div id="modal-reward" class="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden">
+        <div class="card-custom w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl text-center modal-enter">
+            <div class="text-5xl mb-3 animate-bounce">🎉</div>
+            <h3 class="font-cute font-extrabold text-xl text-dark-color mb-2">Great Focus Session!</h3>
+            <div id="reward-note" class="text-sm italic text-gray-700 bg-pink-50 p-4 rounded-2xl my-3 border border-pink-100">
+                "You worked so hard! I'm super proud of you. Time to take a cozy break!" 💕
+            </div>
+            <button onclick="closeRewardModal()" class="btn-primary w-full py-3 rounded-2xl font-bold text-sm">
+                Claim Warm Hug 🧸
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL 4: Stats & History -->
+    <div id="modal-stats" class="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 hidden">
+        <div class="card-custom w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl modal-enter">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-cute font-bold text-lg text-dark-color flex items-center gap-2">
+                    <i class="fa-solid fa-heart-pulse text-pink-500"></i> Productivity Stats
+                </h3>
+                <button onclick="closeStatsModal()" class="text-gray-400 hover:text-gray-600 text-lg w-8 h-8 rounded-full flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <div class="bg-pink-50 p-3.5 rounded-2xl text-center border border-pink-100">
+                    <span id="stat-completed" class="block font-cute font-extrabold text-2xl text-pink-600">0</span>
+                    <span class="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Sessions Done</span>
+                </div>
+                <div class="bg-purple-50 p-3.5 rounded-2xl text-center border border-purple-100">
+                    <span id="stat-minutes" class="block font-cute font-extrabold text-2xl text-purple-600">0m</span>
+                    <span class="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Focus Time</span>
+                </div>
+            </div>
+
+            <div class="text-xs text-gray-500 text-center italic mb-4">
+                "Small steps every day lead to beautiful achievements."
+            </div>
+
+            <button onclick="closeStatsModal()" class="btn-primary w-full py-3 rounded-2xl font-bold text-sm">
+                Back to Focus ✨
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /* ==========================================
+           STATE & CONFIGURATION MANAGEMENT
+           ========================================== */
+        let timerState = {
+            mode: 'work', // 'work', 'short', 'long'
+            timeLeft: 25 * 60,
+            totalTime: 25 * 60,
+            isRunning: false,
+            interval: null,
+            completedSessions: 0,
+            totalFocusMinutes: 0,
+            settings: {
+                work: 25,
+                short: 5,
+                long: 15,
+                theme: 'berry'
+            },
+            tasks: []
+        };
+
+        const sweetNotes = [
+            "You worked so hard! I'm super proud of you. Time to take a cozy break! 💕",
+            "Awesome job focusing! Remember to stretch and take a sip of water 💧✨",
+            "You're doing amazing today! One pomodoro closer to your big dreams 🌟",
+            "Take a deep breath and relax for a moment. You earned this rest 🍵🌸",
+            "Your dedication is truly inspiring! Enjoy this break sweetheart 💕"
+        ];
+
+        /* ==========================================
+           WEB AUDIO API SYNTHESIZER
+           Mobile friendly audio without external MP3 asset dependencies
+           ========================================== */
+        let audioCtx = null;
+        let ambientOsc = null;
+        let ambientGain = null;
+        let ambientType = 'rain';
+        let isAmbientPlaying = false;
+
+        function initAudioContext() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        // Haptic Feedback for Mobile Touch Response
+        function triggerHaptic(type = 'light') {
+            if ('vibrate' in navigator) {
+                if (type === 'light') navigator.vibrate(15);
+                else if (type === 'success') navigator.vibrate([30, 50, 30]);
+            }
+        }
+
+        // Play Synthesized Completion Chime
+        function playCompletionChime() {
+            initAudioContext();
+            if (!audioCtx) return;
+
+            const now = audioCtx.currentTime;
+            
+            // Sweet cute 3-note melody (C5, E5, G5)
+            const notes = [523.25, 659.25, 783.99];
+            notes.forEach((freq, idx) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, now + idx * 0.15);
+                
+                gain.gain.setValueAtTime(0, now + idx * 0.15);
+                gain.gain.linearRampToValueAtTime(0.2, now + idx * 0.15 + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.15 + 0.6);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start(now + idx * 0.15);
+                osc.stop(now + idx * 0.15 + 0.6);
+            });
+        }
+
+        // Web Audio Ambient Generator (Rain/Ocean/Cafe Pink Noise)
+        function toggleAmbientSound() {
+            triggerHaptic('light');
+            initAudioContext();
+
+            const icon = document.getElementById('ambient-icon');
+            if (isAmbientPlaying) {
+                stopAmbientSound();
+                icon.className = 'fa-solid fa-volume-xmark';
+                isAmbientPlaying = false;
+            } else {
+                startAmbientSound();
+                icon.className = 'fa-solid fa-volume-high text-pink-500 animate-pulse';
+                isAmbientPlaying = true;
+            }
+        }
+
+        function startAmbientSound() {
+            if (!audioCtx) return;
+            stopAmbientSound(); // Reset if already existing
+
+            const bufferSize = 2 * audioCtx.sampleRate;
+            const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+
+            // Generate soft noise generator for rain/ocean ambiance
+            let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+            for (let i = 0; i < bufferSize; i++) {
+                const white = Math.random() * 2 - 1;
+                b0 = 0.99886 * b0 + white * 0.0555179;
+                b1 = 0.99332 * b1 + white * 0.0750759;
+                b2 = 0.96900 * b2 + white * 0.1538520;
+                b3 = 0.86650 * b3 + white * 0.3104856;
+                b4 = 0.55000 * b4 + white * 0.5329522;
+                b5 = -0.7616 * b5 - white * 0.0168980;
+                output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+                output[i] *= 0.05; // Soft volume
+                b6 = white * 0.115926;
+            }
+
+            const whiteNoise = audioCtx.createBufferSource();
+            whiteNoise.buffer = noiseBuffer;
+            whiteNoise.loop = true;
+
+            // Lowpass filter for cozy ambient feel
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = ambientType === 'rain' ? 800 : (ambientType === 'waves' ? 400 : 1200);
+
+            ambientGain = audioCtx.createGain();
+            ambientGain.gain.value = 0.15;
+
+            whiteNoise.connect(filter);
+            filter.connect(ambientGain);
+            ambientGain.connect(audioCtx.destination);
+
+            whiteNoise.start();
+            ambientOsc = whiteNoise;
+        }
+
+        function stopAmbientSound() {
+            if (ambientOsc) {
+                try { ambientOsc.stop(); } catch(e){}
+                ambientOsc = null;
+            }
+        }
+
+        function setAmbientType(type) {
+            triggerHaptic('light');
+            ambientType = type;
+            ['snd-rain', 'snd-cafe', 'snd-waves'].forEach(id => {
+                const btn = document.getElementById(id);
+                if(btn) btn.classList.remove('ring-2', 'ring-pink-400');
+            });
+            const activeBtn = document.getElementById(`snd-${type}`);
+            if(activeBtn) activeBtn.classList.add('ring-2', 'ring-pink-400');
+
+            if (isAmbientPlaying) {
+                startAmbientSound();
+            }
+        }
+
+        /* ==========================================
+           TIMER CONTROLS & RENDER LOGIC
+           ========================================== */
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timerState.timeLeft / 60);
+            const seconds = timerState.timeLeft % 60;
+            const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            document.getElementById('timer-time').innerText = timeString;
+            document.title = `${timeString} - Sweetheart Pomodoro`;
+
+            // Progress Ring Update
+            const circle = document.getElementById('timer-ring');
+            const radius = circle.r.baseVal.value;
+            const circumference = 2 * Math.PI * radius;
+            
+            circle.style.strokeDasharray = `${circumference} ${circumference}`;
+            const offset = circumference - (timerState.timeLeft / timerState.totalTime) * circumference;
+            circle.style.strokeDashoffset = offset;
+        }
+
+        function toggleTimer() {
+            triggerHaptic('light');
+            initAudioContext();
+
+            if (timerState.isRunning) {
+                pauseTimer();
+            } else {
+                startTimer();
+            }
+        }
+
+        function startTimer() {
+            timerState.isRunning = true;
+            document.getElementById('start-text').innerText = 'Pause';
+            document.getElementById('start-icon').className = 'fa-solid fa-pause text-lg';
+
+            timerState.interval = setInterval(() => {
+                if (timerState.timeLeft > 0) {
+                    timerState.timeLeft--;
+                    updateTimerDisplay();
+                } else {
+                    completeSession();
+                }
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            timerState.isRunning = false;
+            clearInterval(timerState.interval);
+            document.getElementById('start-text').innerText = 'Start';
+            document.getElementById('start-icon').className = 'fa-solid fa-play text-lg';
+        }
+
+        function resetTimer() {
+            triggerHaptic('light');
+            pauseTimer();
+            timerState.timeLeft = timerState.settings[timerState.mode] * 60;
+            timerState.totalTime = timerState.timeLeft;
+            updateTimerDisplay();
+        }
+
+        function skipTimer() {
+            triggerHaptic('light');
+            pauseTimer();
+            completeSession(true);
+        }
+
+        function switchMode(mode) {
+            triggerHaptic('light');
+            pauseTimer();
+            timerState.mode = mode;
+
+            // Mode tab active states
+            ['work', 'short', 'long'].forEach(m => {
+                const btn = document.getElementById(`mode-${m}`);
+                if (m === mode) {
+                    btn.className = 'flex-1 py-2 rounded-2xl text-xs font-bold transition-all duration-300 text-white bg-custom-gradient btn-primary';
+                } else {
+                    btn.className = 'flex-1 py-2 rounded-2xl text-xs font-bold transition-all duration-300 text-dark-color hover:bg-white/40';
+                }
+            });
+
+            timerState.timeLeft = timerState.settings[mode] * 60;
+            timerState.totalTime = timerState.timeLeft;
+            updateTimerDisplay();
+        }
+
+        function completeSession(skipped = false) {
+            pauseTimer();
+            triggerHaptic('success');
+
+            if (!skipped) {
+                playCompletionChime();
+                spawnHearts();
+
+                if (timerState.mode === 'work') {
+                    timerState.completedSessions++;
+                    timerState.totalFocusMinutes += timerState.settings.work;
+                    saveStorage();
+                    
+                    // Show reward note popup
+                    const randomNote = sweetNotes[Math.floor(Math.random() * sweetNotes.length)];
+                    document.getElementById('reward-note').innerText = `"${randomNote}"`;
+                    openRewardModal();
+                }
+            }
+
+            // Update session counter display
+            document.getElementById('session-counter').innerText = `Session ${timerState.completedSessions + 1}/4 • Stay Cute!`;
+
+            // Auto-switch to next logical mode
+            if (timerState.mode === 'work') {
+                if (timerState.completedSessions % 4 === 0) {
+                    switchMode('long');
+                } else {
+                    switchMode('short');
+                }
+            } else {
+                switchMode('work');
+            }
+        }
+
+        /* ==========================================
+           FLOATING HEARTS & CELEBRATION EFFECTS
+           ========================================== */
+        function spawnHearts() {
+            const heartEmojis = ['💖', '🌸', '✨', '💕', '🍓', '🧸'];
+            for (let i = 0; i < 18; i++) {
+                setTimeout(() => {
+                    const heart = document.createElement('div');
+                    heart.className = 'heart-particle text-2xl sm:text-3xl';
+                    heart.innerText = heartEmojis[Math.floor(Math.random() * heartEmojis.length)];
+                    heart.style.left = `${Math.random() * 90 + 5}vw`;
+                    heart.style.animationDuration = `${3 + Math.random() * 2}s`;
+                    document.body.appendChild(heart);
+
+                    setTimeout(() => heart.remove(), 4000);
+                }, i * 120);
+            }
+        }
+
+        /* ==========================================
+           TASKS MANAGEMENT
+           ========================================== */
+        function renderTasks() {
+            const list = document.getElementById('task-list');
+            list.innerHTML = '';
+
+            let completedCount = 0;
+            timerState.tasks.forEach((task, index) => {
+                if (task.completed) completedCount++;
+
+                const li = document.createElement('li');
+                li.className = `flex items-center justify-between p-2.5 rounded-2xl bg-white/70 backdrop-blur-xs border border-white/50 text-xs transition ${task.completed ? 'opacity-50 line-through' : ''}`;
+                
+                li.innerHTML = `
+                    <div onclick="toggleTask(${index})" class="flex items-center space-x-2.5 flex-1 cursor-pointer">
+                        <span class="w-5 h-5 rounded-full border-2 border-pink-400 flex items-center justify-center text-[10px] ${task.completed ? 'bg-pink-400 text-white' : ''}">
+                            ${task.completed ? '✓' : ''}
+                        </span>
+                        <span class="font-semibold text-dark-color">${escapeHtml(task.title)}</span>
+                    </div>
+                    <button onclick="deleteTask(${index})" class="text-gray-400 hover:text-red-400 px-2 py-1">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                `;
+                list.appendChild(li);
+            });
+
+            document.getElementById('task-count').innerText = `${completedCount}/${timerState.tasks.length} Done`;
+        }
+
+        function addTask(e) {
+            e.preventDefault();
+            triggerHaptic('light');
+            const input = document.getElementById('task-input');
+            const text = input.value.trim();
+            if (text) {
+                timerState.tasks.push({ title: text, completed: false });
+                input.value = '';
+                saveStorage();
+                renderTasks();
+            }
+        }
+
+        function toggleTask(index) {
+            triggerHaptic('light');
+            timerState.tasks[index].completed = !timerState.tasks[index].completed;
+            saveStorage();
+            renderTasks();
+        }
+
+        function deleteTask(index) {
+            triggerHaptic('light');
+            timerState.tasks.splice(index, 1);
+            saveStorage();
+            renderTasks();
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/[&<>"']/g, function(m) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+            });
+        }
+
+        /* ==========================================
+           SETTINGS, THEMES & LOCAL STORAGE
+           ========================================== */
+        function openSettings() {
+            triggerHaptic('light');
+            document.getElementById('set-work').value = timerState.settings.work;
+            document.getElementById('set-short').value = timerState.settings.short;
+            document.getElementById('set-long').value = timerState.settings.long;
+            document.getElementById('modal-settings').classList.remove('hidden');
+        }
+
+        function closeSettings() {
+            triggerHaptic('light');
+            document.getElementById('modal-settings').classList.add('hidden');
+        }
+
+        function saveSettings() {
+            triggerHaptic('light');
+            timerState.settings.work = parseInt(document.getElementById('set-work').value) || 25;
+            timerState.settings.short = parseInt(document.getElementById('set-short').value) || 5;
+            timerState.settings.long = parseInt(document.getElementById('set-long').value) || 15;
+            
+            saveStorage();
+            closeSettings();
+            switchMode(timerState.mode);
+        }
+
+        function applyTheme(themeName) {
+            triggerHaptic('light');
+            document.body.className = `theme-${themeName} bg-custom-gradient min-h-screen text-gray-800 flex flex-col justify-between overflow-x-hidden antialiased`;
+            timerState.settings.theme = themeName;
+            saveStorage();
+        }
+
+        function openRewardModal() {
+            document.getElementById('modal-reward').classList.remove('hidden');
+        }
+
+        function closeRewardModal() {
+            triggerHaptic('light');
+            document.getElementById('modal-reward').classList.add('hidden');
+        }
+
+        function openPwaModal() {
+            triggerHaptic('light');
+            document.getElementById('modal-pwa').classList.remove('hidden');
+        }
+
+        function closePwaModal() {
+            triggerHaptic('light');
+            document.getElementById('modal-pwa').classList.add('hidden');
+        }
+
+        function openStatsModal() {
+            triggerHaptic('light');
+            document.getElementById('stat-completed').innerText = timerState.completedSessions;
+            document.getElementById('stat-minutes').innerText = `${timerState.totalFocusMinutes}m`;
+            document.getElementById('modal-stats').classList.remove('hidden');
+        }
+
+        function closeStatsModal() {
+            triggerHaptic('light');
+            document.getElementById('modal-stats').classList.add('hidden');
+        }
+
+        function openLoveNoteModal() {
+            triggerHaptic('light');
+            const randomNote = sweetNotes[Math.floor(Math.random() * sweetNotes.length)];
+            document.getElementById('reward-note').innerText = `"${randomNote}"`;
+            openRewardModal();
+        }
+
+        function switchTab(tab) {
+            triggerHaptic('light');
+            if (tab === 'timer') {
+                closeStatsModal();
+                closeSettings();
+            }
+        }
+
+        /* LocalStorage Persistence */
+        function saveStorage() {
+            localStorage.setItem('sweetheart_pomo_data', JSON.stringify({
+                completedSessions: timerState.completedSessions,
+                totalFocusMinutes: timerState.totalFocusMinutes,
+                settings: timerState.settings,
+                tasks: timerState.tasks
+            }));
+        }
+
+        function loadStorage() {
+            const data = localStorage.getItem('sweetheart_pomo_data');
+            if (data) {
+                try {
+                    const parsed = JSON.parse(data);
+                    timerState.completedSessions = parsed.completedSessions || 0;
+                    timerState.totalFocusMinutes = parsed.totalFocusMinutes || 0;
+                    if (parsed.settings) timerState.settings = parsed.settings;
+                    if (parsed.tasks) timerState.tasks = parsed.tasks;
+
+                    if (timerState.settings.theme) {
+                        applyTheme(timerState.settings.theme);
+                    }
+                } catch(e) { console.error("Error loading saved data", e); }
+            }
+        }
+
+        /* Application Initialization */
+        window.onload = function() {
+            loadStorage();
+            updateTimerDisplay();
+            renderTasks();
+
+            // Unlock Web Audio API on first user interaction (Mobile requirement)
+            const unlockAudio = () => {
+                initAudioContext();
+                document.removeEventListener('touchstart', unlockAudio);
+                document.removeEventListener('click', unlockAudio);
+            };
+            document.addEventListener('touchstart', unlockAudio, { once: true });
+            document.addEventListener('click', unlockAudio, { once: true });
+        };
+    </script>
+</body>
+</html>
